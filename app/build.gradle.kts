@@ -13,8 +13,8 @@ android {
         applicationId = "dev.mirrorme"
         minSdk = 28
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "0.2"
     }
 
     buildTypes {
@@ -51,4 +51,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
+    // 지도 (OpenStreetMap, API 키 필요 없음)
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
 }

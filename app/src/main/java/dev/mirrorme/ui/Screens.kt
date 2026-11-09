@@ -81,33 +81,33 @@ import java.util.Locale
 
 // ───────────────────────── 공통 ─────────────────────────
 
-private fun hm(ms: Long?): String = ms?.let {
+internal fun hm(ms: Long?): String = ms?.let {
     val t = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalTime()
     "%02d:%02d".format(t.hour, t.minute)
 } ?: "–"
 
-private fun hm(t: LocalTime) = "%02d:%02d".format(t.hour, t.minute)
+internal fun hm(t: LocalTime) = "%02d:%02d".format(t.hour, t.minute)
 
-private fun dur(ms: Long): String {
+internal fun dur(ms: Long): String {
     val m = ms / 60_000
     return if (m >= 60) "${m / 60}시간 ${m % 60}분" else "${m}분"
 }
 
-private val PlacePalette = listOf(
+internal val PlacePalette = listOf(
     Color(0xFF2F4F9E), Color(0xFFD08A2E), Color(0xFF4E8F6A), Color(0xFF9A5BA8),
     Color(0xFFC0504D), Color(0xFF3F8FA8), Color(0xFF8A7F3A),
 )
 
-private fun placeColor(id: Long) = PlacePalette[(id % PlacePalette.size).toInt()]
+internal fun placeColor(id: Long) = PlacePalette[(id % PlacePalette.size).toInt()]
 
 @Composable
-private fun SectionTitle(text: String) {
+internal fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
 }
 
 @Composable
-private fun Stat(value: String, label: String, modifier: Modifier = Modifier) {
+internal fun Stat(value: String, label: String, modifier: Modifier = Modifier) {
     Column(modifier) {
         Text(value, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -115,100 +115,13 @@ private fun Stat(value: String, label: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Hint(text: String) {
+internal fun Hint(text: String) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(vertical = 12.dp))
 }
 
-private fun hasAllPermissions(c: Context) =
+internal fun hasAllPermissions(c: Context) =
     TrackingService.hasLocationPermission(c) && UsageCollector.hasPermission(c)
-
-// ───────────────────────── 오늘 ─────────────────────────
-
-@Composable
-fun TodayScreen(repo: Repo, refresh: Int, modifier: Modifier, onOpenSettings: () -> Unit) {
-    val context = LocalContext.current
-    var date by remember { mutableStateOf(LocalDate.now()) }
-    var data by remember { mutableStateOf<Repo.TodayData?>(null) }
-    var resumeTick by remember { mutableIntStateOf(0) }
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumeTick++ }
-    LaunchedEffect(date, refresh, resumeTick) { data = repo.day(date) }
-
-    LazyColumn(modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        item {
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { date = date.minusDays(1) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "전날") }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("${date.monthValue}월 ${date.dayOfMonth}일 ${date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)}",
-                        style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    if (date == LocalDate.now()) Text("오늘", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
-                }
-                IconButton(onClick = { date = date.plusDays(1) }, enabled = date < LocalDate.now()) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "다음 날")
-                }
-            }
-        }
-        if (!hasAllPermissions(context) || !Prefs.trackingOn(context)) {
-            item {
-                Card(Modifier.fillMaxWidth().padding(top = 12.dp).clickable { onOpenSettings() }) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("기록이 아직 꺼져 있어요", fontWeight = FontWeight.SemiBold)
-                        Text("설정 탭에서 권한 3개를 허용하고 기록을 켜 주세요.", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-        }
-        val d = data
-        if (d == null) {
-            item { Hint("불러오는 중…") }
-            return@LazyColumn
-        }
-        val s = d.summary
-        item {
-            Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Stat(dur(s.screenTimeMs), "화면 사용", Modifier.weight(1f))
-                Stat("${s.screenOnCount}회", "화면 켬", Modifier.weight(1f))
-                Stat(hm(s.firstOn), "첫 사용", Modifier.weight(1f))
-            }
-        }
-        item { SectionTitle("동선") }
-        if (s.items.isEmpty()) item { Hint("이 날은 아직 머문 곳이 기록되지 않았어요. 한 곳에 10분 이상 있으면 여기에 나타나요.") }
-        items(s.items) { it ->
-            when (it) {
-                is TimelineItem.AtPlace -> {
-                    val p = d.places[it.placeId]
-                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                        Text(hm(it.start), Modifier.width(52.dp), fontWeight = FontWeight.Medium)
-                        Box(Modifier.padding(top = 4.dp).size(10.dp).background(placeColor(it.placeId), CircleShape))
-                        Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                            Text(p?.name ?: "알 수 없는 곳", fontWeight = FontWeight.SemiBold)
-                            Text("${hm(it.start)}–${hm(it.end)} · ${dur(it.end - it.start)}",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (it.topApps.isNotEmpty()) {
-                                Text(it.topApps.joinToString("  ") { (pkg, ms) -> "${repo.appLabel(pkg)} ${dur(ms)}" },
-                                    style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    }
-                }
-                is TimelineItem.Moving -> Row(Modifier.padding(vertical = 2.dp)) {
-                    Spacer(Modifier.width(52.dp))
-                    Text("  ↓ 이동 ${dur(it.end - it.start)}", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-        item { SectionTitle("많이 쓴 앱") }
-        if (s.topApps.isEmpty()) item { Hint("사용 기록 접근을 허용하면 앱별 사용 시간이 보여요.") }
-        items(s.topApps) { (pkg, ms) ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text(repo.appLabel(pkg), Modifier.weight(1f))
-                Text(dur(ms), fontWeight = FontWeight.Medium)
-            }
-        }
-        item { Spacer(Modifier.height(24.dp)) }
-    }
-}
 
 // ───────────────────────── 루틴 ─────────────────────────
 
@@ -320,54 +233,6 @@ fun RoutineScreen(repo: Repo, refresh: Int, modifier: Modifier) {
     }
 }
 
-// ───────────────────────── 장소 ─────────────────────────
-
-@Composable
-fun PlacesScreen(repo: Repo, refresh: Int, modifier: Modifier) {
-    val scope = rememberCoroutineScope()
-    var places by remember { mutableStateOf<List<Place>>(emptyList()) }
-    var editing by remember { mutableStateOf<Place?>(null) }
-    var reload by remember { mutableIntStateOf(0) }
-    LaunchedEffect(refresh, reload) { places = repo.places() }
-
-    LazyColumn(modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        item {
-            Text("장소", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 20.dp))
-            Text("10분 이상 머문 곳이 자동으로 모여요. 눌러서 이름을 바꿔 보세요 (예: 헬스장, 단골 카페).",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 12.dp))
-        }
-        if (places.isEmpty()) item { Hint("아직 저장된 장소가 없어요.") }
-        items(places, key = { it.id }) { p ->
-            Row(Modifier.fillMaxWidth().clickable { editing = p }.padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(12.dp).background(placeColor(p.id), CircleShape))
-                Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                    Text(p.name, fontWeight = FontWeight.SemiBold)
-                    Text("%.4f, %.4f".format(p.lat, p.lng), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Text("이름 바꾸기", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-            }
-            HorizontalDivider()
-        }
-    }
-
-    editing?.let { p ->
-        var name by remember(p.id) { mutableStateOf(p.name) }
-        AlertDialog(
-            onDismissRequest = { editing = null },
-            title = { Text("장소 이름") },
-            text = { OutlinedTextField(value = name, onValueChange = { name = it.take(20) }, singleLine = true) },
-            confirmButton = {
-                TextButton(enabled = name.isNotBlank(), onClick = {
-                    scope.launch { repo.renamePlace(p, name); editing = null; reload++ }
-                }) { Text("저장") }
-            },
-            dismissButton = { TextButton(onClick = { editing = null }) { Text("취소") } },
-        )
-    }
-}
-
 // ───────────────────────── 설정 ─────────────────────────
 
 @Composable
@@ -451,7 +316,7 @@ fun SettingsScreen(repo: Repo, modifier: Modifier) {
         }
         item {
             SectionTitle("개인정보")
-            Text("모든 기록은 이 폰 안에만 저장돼요. 인터넷으로 보내지 않고, 앱을 지우면 함께 사라져요.",
+            Text("모든 기록은 이 폰 안에만 저장되고 앱을 지우면 함께 사라져요. 지도를 볼 때만 화면에 보이는 지역의 지도 이미지(OpenStreetMap)와 장소 주소(안드로이드 주소 변환)를 인터넷에서 받아와요.",
                 style = MaterialTheme.typography.bodySmall)
             OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.padding(top = 12.dp, bottom = 32.dp)) {
                 Text("모든 기록 지우기")

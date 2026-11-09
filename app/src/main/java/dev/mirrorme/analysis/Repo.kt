@@ -2,6 +2,7 @@ package dev.mirrorme.analysis
 
 import android.content.Context
 import dev.mirrorme.data.AppDb
+import dev.mirrorme.data.LocationPoint
 import dev.mirrorme.data.Place
 import dev.mirrorme.tracking.UsageCollector
 import kotlinx.coroutines.Dispatchers
@@ -38,7 +39,12 @@ class Repo(private val context: Context) {
         return StayDetector.mergeSamePlace(assigned) to places
     }
 
-    data class TodayData(val date: LocalDate, val summary: DaySummary, val places: Map<Long, Place>)
+    data class TodayData(
+        val date: LocalDate,
+        val summary: DaySummary,
+        val places: Map<Long, Place>,
+        val route: List<LocationPoint>,
+    )
 
     suspend fun day(date: LocalDate): TodayData = withContext(Dispatchers.IO) {
         UsageCollector.sync(context)
@@ -46,8 +52,10 @@ class Repo(private val context: Context) {
         val e = s + 86_400_000L
         val (stays, places) = staysWithPlaces(s - 12 * 3600_000L, e)
         val summary = TimelineBuilder.build(stays, dao.sessions(s, e), dao.screenEvents(s, e), s, e)
-        TodayData(date, summary, places.associateBy { it.id })
+        TodayData(date, summary, places.associateBy { it.id }, dao.points(s, e))
     }
+
+    suspend fun address(p: Place): String? = Geo.address(context, p.lat, p.lng)
 
     data class RoutineData(val routine: Routine, val places: Map<Long, Place>)
 
