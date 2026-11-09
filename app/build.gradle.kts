@@ -17,6 +17,16 @@ android {
         versionName = "0.2"
     }
 
+    // 빌드할 때마다 같은 키로 서명해야 업데이트를 덮어 설치할 수 있다 (개인용 디버그 키)
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("mirrorme-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
